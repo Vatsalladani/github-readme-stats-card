@@ -35,34 +35,29 @@ import sys
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
-# Add repo root to sys.path so lib/ is importable in Vercel's sandbox
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from lib.stats_engine import build_stats
-from lib.svg_renderer import build_timeline_svg, build_error_svg
-
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants  (defined at module level — safe, no imports from lib needed)
 # ---------------------------------------------------------------------------
 
 # GitHub's documented login format: alphanumeric + hyphens, 1–39 chars,
-# cannot start or end with a hyphen, no consecutive hyphens.
-# We use a slightly permissive regex here (allows leading/trailing hyphens)
-# and rely on the GitHub API itself to reject truly invalid logins.
-_USERNAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9-]{0,37}[a-zA-Z0-9]$|^[a-zA-Z0-9]$')
+# cannot start or end with a hyphen.
+_USERNAME_RE = re.compile(
+    r'^[a-zA-Z0-9][a-zA-Z0-9-]{0,37}[a-zA-Z0-9]$|^[a-zA-Z0-9]$'
+)
 
 _SVG_CONTENT_TYPE = "image/svg+xml; charset=utf-8"
+_CACHE_CONTROL    = "public, s-maxage=3600, stale-while-revalidate=86400"
 
-_CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=86400"
 
+# ---------------------------------------------------------------------------
+# Helpers  (pure stdlib — no lib imports needed)
+# ---------------------------------------------------------------------------
 
 def _get_token():
     """
     Read GITHUB_TOKEN from the server-side environment.
-
-    Raises RuntimeError if the variable is absent (misconfigured deployment).
-    The token is NEVER returned to callers or included in any response.
+    Raises RuntimeError if absent. Token is NEVER included in any response.
     """
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
@@ -74,11 +69,10 @@ def _get_token():
 
 def _validate_username(username):
     """
-    Validate that a username matches GitHub's login format.
+    Validate a username against GitHub's login format.
 
     Returns (True, "") on success.
-    Returns (False, reason_string) on failure — reason is user-visible and
-    must NOT contain internal details.
+    Returns (False, reason) on failure — reason is user-visible and safe.
     """
     if not username:
         return False, "username is required"
@@ -89,24 +83,46 @@ def _validate_username(username):
     return True, ""
 
 
-def _send_svg(handler, svg_body, status=200, extra_headers=None):
-    """Write an SVG HTTP response."""
+def _send_svg(req_handler, svg_body, status=200, extra_headers=None):
+    """Write an SVG HTTP response through the BaseHTTPRequestHandler."""
     body = svg_body.encode("utf-8")
-
-    handler.send_response(status)
-    handler.send_header("Content-Type", _SVG_CONTENT_TYPE)
-    handler.send_header("Content-Length", str(len(body)))
-    handler.send_header("Cache-Control", _CACHE_CONTROL)
-    handler.send_header("X-Content-Type-Options", "nosniff")
+    req_handler.send_response(status)
+    req_handler.send_header("Content-Type", _SVG_CONTENT_TYPE)
+    req_handler.send_header("Content-Length", str(len(body)))
+    req_handler.send_header("Cache-Control", _CACHE_CONTROL)
+    req_handler.send_header("X-Content-Type-Options", "nosniff")
     if extra_headers:
         for key, value in extra_headers.items():
-            handler.send_header(key, value)
-    handler.end_headers()
-    handler.wfile.write(body)
+            req_handler.send_header(key, value)
+    req_handler.end_headers()
+    req_handler.wfile.write(body)
+
+
+def _ensure_lib_path():
+    """
+    Add the repository root to sys.path so that `lib.stats_engine` and
+    `lib.svg_renderer` are importable.
+
+    Called lazily inside do_GET() so that the `class handler` definition at
+    module level is always visible to Vercel's build scanner even before any
+    imports from lib/ are attempted.
+    """
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
 
 
 # ---------------------------------------------------------------------------
-# Vercel serverless handler (BaseHTTPRequestHandler pattern)
+# Vercel serverless handler
+#
+# IMPORTANT: `class handler` must be defined at the module top level with no
+# import errors above it.  Vercel scans api/stats.py for a top-level
+# `handler` class that inherits from BaseHTTPRequestHandler.  If any
+# top-level import raises an ImportError the scanner reports:
+#   "No python entrypoint found … api/stats.py (variable: handler)"
+#
+# For this reason, all imports from lib/ are done lazily inside do_GET()
+# rather than at the top of the file.
 # ---------------------------------------------------------------------------
 
 class handler(BaseHTTPRequestHandler):
@@ -118,6 +134,14 @@ class handler(BaseHTTPRequestHandler):
     """
 
     def do_GET(self):
+        # ── Lazy import of lib/ modules ──────────────────────────────────────
+        # Done here (not at module top level) so that Vercel's build scanner
+        # can always see `class handler` above without tripping on an
+        # ImportError when lib/ is not yet on sys.path.
+        _ensure_lib_path()
+        from lib.stats_engine import build_stats          # noqa: PLC0415
+        from lib.svg_renderer import build_timeline_svg, build_error_svg  # noqa: PLC0415
+
         # ── Parse query string ───────────────────────────────────────────────
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
@@ -138,7 +162,6 @@ class handler(BaseHTTPRequestHandler):
         try:
             token = _get_token()
         except RuntimeError:
-            # Deployment misconfiguration — don't expose details
             error_svg = build_error_svg(
                 "Service configuration error",
                 "Please try again later."
@@ -151,7 +174,6 @@ class handler(BaseHTTPRequestHandler):
         try:
             stats = build_stats(username, token)
         except ValueError:
-            # User not found on GitHub — clean user-facing error
             error_svg = build_error_svg(
                 f"GitHub user not found: {username}",
                 "Check the spelling and try again."
@@ -160,9 +182,7 @@ class handler(BaseHTTPRequestHandler):
                       extra_headers={"Cache-Control": "no-store"})
             return
         except RuntimeError as exc:
-            # GitHub API error — surface a safe message only
             msg = str(exc)
-            # Ensure we never accidentally include the token in the message
             safe_msg = msg if "token" not in msg.lower() else "GitHub API error"
             error_svg = build_error_svg(
                 "GitHub API error",
@@ -172,7 +192,6 @@ class handler(BaseHTTPRequestHandler):
                       extra_headers={"Cache-Control": "no-store"})
             return
         except Exception:
-            # Unexpected error — log nothing to response
             error_svg = build_error_svg(
                 "Unexpected error",
                 "Please try again later."
@@ -198,10 +217,7 @@ class handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         """
         Override default HTTP logging.
-        Omit request paths from logs to avoid accidentally logging usernames
-        or any token fragments that might appear in query strings.
-        We log only the response code and a fixed label.
+        Only log the response status — never log paths, usernames, or query strings.
         """
-        # args[1] is the HTTP status code
         status = args[1] if len(args) > 1 else "-"
         print(f"[api/stats] response={status}")
