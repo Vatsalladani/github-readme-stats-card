@@ -1,0 +1,10 @@
+# github-readme-stats-card — API dependencies
+#
+# The public SVG API (api/stats.py) uses Python standard library only.
+# No third-party packages are required for the serverless endpoint.
+#
+# Pillow is used ONLY by scripts/generate_animation.py (local / CI GIF generation).
+# It is NOT installed in the Vercel serverless environment.
+#
+# If you add features that require third-party packages, list them below.
+# (Vercel will install these via pip during build.)

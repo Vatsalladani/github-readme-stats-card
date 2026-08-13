@@ -1,0 +1,57 @@
+name: Update GitHub Stats
+
+on:
+  schedule:
+    # Every Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+# Minimal permissions: only need to write repo contents
+permissions:
+  contents: write
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Use the default GITHUB_TOKEN for push
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install pillow
+
+      - name: Generate stats and SVG
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Override username here if this workflow is used on a fork
+          # GITHUB_USERNAME: your-username
+        run: python scripts/generate_stats.py
+
+      - name: Generate animated GIF
+        run: python scripts/generate_animation.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage only the generated assets
+          git add assets/github-stats.svg assets/github-stats.gif assets/stats_data.json
+
+          # Only commit when there are actual changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update github stats [skip ci]"
+            git push
+          fi
