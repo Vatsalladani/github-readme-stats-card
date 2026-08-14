@@ -305,7 +305,7 @@ def build_timeline_svg(stats):
   <text x="{W - PAD}" y="325" text-anchor="end"
         fill="#6e7681"
         font-family="ui-monospace,'Cascadia Code',Consolas,monospace"
-        font-size="9">github-readme-stats-card · by {login}</text>
+        font-size="9">github-readme-stats-card · by Vatsalladani</text>
 
 </svg>'''
 
