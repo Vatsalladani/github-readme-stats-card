@@ -58,9 +58,7 @@ def build_timeline_svg(stats):
 
     login         = escape_svg(stats.get("login") or stats.get("username", ""))
     username      = escape_svg(stats.get("username", login))
-    # Top-left identity: GitHub profile name if set, else login
-    _raw_name    = stats.get("name") or ""
-    display_name = escape_svg(_raw_name.strip() if _raw_name and _raw_name.strip() else (stats.get("login") or stats.get("username", "")))
+
     total         = stats["total_contributions"]
     cur_streak    = stats["current_streak"]
     cur_range     = escape_svg(stats.get("current_streak_range", ""))
@@ -178,7 +176,7 @@ def build_timeline_svg(stats):
   <text x="{PAD}" y="38"
         fill="#f0f6fc"
         font-family="system-ui,-apple-system,BlinkMacSystemFont,Arial,sans-serif"
-        font-size="20" font-weight="700">{display_name}</text>
+        font-size="20" font-weight="700">{login}</text>
 
   <text x="{PAD}" y="57"
         fill="#8b949e"
@@ -307,7 +305,7 @@ def build_timeline_svg(stats):
   <text x="{W - PAD}" y="325" text-anchor="end"
         fill="#6e7681"
         font-family="ui-monospace,'Cascadia Code',Consolas,monospace"
-        font-size="9">github-readme-stats-card · by Vatsal Ladani</text>
+        font-size="9">github-readme-stats-card · by {login}</text>
 
 </svg>'''
 
