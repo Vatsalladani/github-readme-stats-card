@@ -101,7 +101,7 @@
   <text x="406" y="199" text-anchor="middle"
         fill="#3fb950"
         font-family="ui-monospace,'Cascadia Code',Consolas,monospace"
-        font-size="18" font-weight="700">10</text>
+        font-size="18" font-weight="700">0</text>
   <text x="406" y="228" text-anchor="middle"
         fill="#8b949e"
         font-family="system-ui,-apple-system,BlinkMacSystemFont,Arial,sans-serif"
@@ -113,7 +113,7 @@
   <text x="406" y="258" text-anchor="middle"
         fill="#3fb950"
         font-family="ui-monospace,'Cascadia Code',Consolas,monospace"
-        font-size="9" font-weight="700">Aug 6 - Aug 15</text>
+        font-size="9" font-weight="700"></text>
 
   <!-- Column 3: Longest Streak -->
   <text x="660" y="200" text-anchor="middle"
