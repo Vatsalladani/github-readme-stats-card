@@ -4,11 +4,11 @@
   "login": "Vatsalladani",
   "display_name": "Vatsalladani",
   "account_created": "2024-10-12",
-  "total_contributions": 125,
-  "current_streak": 6,
-  "current_streak_start": "2026-10-05",
-  "current_streak_end": "2026-10-10",
-  "current_streak_range": "Oct 5 - Oct 10",
+  "total_contributions": 131,
+  "current_streak": 0,
+  "current_streak_start": null,
+  "current_streak_end": null,
+  "current_streak_range": "",
   "longest_streak": 10,
   "longest_streak_start": "2026-08-06",
   "longest_streak_end": "2026-08-15",
@@ -16,12 +16,12 @@
   "peak_date": "2026-07-22",
   "peak_count": 14,
   "top_month": "2026-10",
-  "top_month_total": 39,
+  "top_month_total": 45,
   "history_start": "2024-10-12",
-  "history_end": "2026-10-10",
+  "history_end": "2026-10-16",
   "yearly_activity": {
     "2024": 1,
     "2025": 0,
-    "2026": 124
+    "2026": 130
   }
 }
